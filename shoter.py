@@ -3,7 +3,7 @@ from random import randint
 
 mixer.init()
 mixer_music.load('ggg.mp3')
-mixer_music.play()
+mixer_music.play(-1)  # Play music in a loop
 fire_sound = mixer.Sound('fire.mp3')
 
 font.init()
@@ -18,16 +18,17 @@ img_V2 = "img_V2.png"  # Skin 2
 img_V3 = "img_V3.png"  # Skin 3
 img_bullet = "img_bullet.png"
 img_enemy = "ufo.png"
+explosion_images = ["explosion1.png", "explosion2.png", "explosion3.png", "explosion4.png"]  # List of explosion frames
 
 score = 0
-goal = 1000
+goal = 100
 lost = 0
 max_lost = 3
 coins = 0  # Currency system for purchasing skins
 current_skin = img_V1  # The skin the player is currently using
 
-enemy_speed = 3  # Default speed, will be modified based on difficulty
-enemy_count = 5  # Default number of enemies
+enemy_speed = 1 # Default speed
+enemy_count = 5 # Default number of enemies
 
 # Function to load saved coins from file
 def load_coins():
@@ -84,6 +85,23 @@ class Bullet(Gamesprite):
         if self.rect.y < 0:
             self.kill()
 
+class Explosion(Gamesprite):
+    def __init__(self, x, y):
+        super().__init__(explosion_images[0], x, y, 50, 50, 0)
+        self.frames = [transform.scale(image.load(img), (50, 50)) for img in explosion_images]
+        self.current_frame = 1
+        self.last_update = time.get_ticks()
+
+    def update(self):
+        # Update animation frames
+        if time.get_ticks() - self.last_update > 100:  # Change frame every 100 ms
+            self.last_update = time.get_ticks()
+            self.current_frame += 1
+            if self.current_frame >= len(self.frames):  # End animation after the last frame
+                self.kill()
+            else:
+                self.image = self.frames[self.current_frame]
+
 win_width = 700
 win_height = 500
 display.set_caption("Shooter")
@@ -94,86 +112,13 @@ bullets = sprite.Group()
 ship = Player(current_skin, 5, win_height - 100, 80, 100, 10)
 
 monsters = sprite.Group()
+explosions = sprite.Group()  # Group to hold explosions
 
 def create_monsters():
     monsters.empty()
     for i in range(enemy_count):
         monster = Enemy(img_enemy, randint(80, win_width - 80), -40, 80, 50, randint(enemy_speed, enemy_speed + 3))
         monsters.add(monster)
-
-# Main menu
-def main_menu():
-    global enemy_speed, enemy_count, current_skin, coins
-    menu_running = True
-    while menu_running:
-        window.fill((0, 0, 0))
-        title = font1.render("SHOOTER GAME", True, (255, 255, 255))
-        window.blit(title, (200, 100))
-
-        easy_button = font2.render("Easy", True, (255, 255, 255))
-        medium_button = font2.render("Medium", True, (255, 255, 255))
-        hard_button = font2.render("Hard", True, (255, 255, 255))
-
-        window.blit(easy_button, (300, 200))
-        window.blit(medium_button, (300, 250))
-        window.blit(hard_button, (300, 300))
-
-        # Enemy count buttons
-        enemy_5_button = font2.render("5 Enemies", True, (255, 255, 255))
-        enemy_10_button = font2.render("10 Enemies", True, (255, 255, 255))
-        enemy_15_button = font2.render("15 Enemies", True, (255, 255, 255))
-
-        window.blit(enemy_5_button, (300, 350))
-        window.blit(enemy_10_button, (300, 400))
-        window.blit(enemy_15_button, (300, 450))
-
-        # Skin selection buttons
-        skin1_button = font2.render(f"Skin 1 - 0 Coins", True, (255, 255, 255))
-        skin2_button = font2.render(f"Skin 2 - 10 Coins", True, (255, 255, 255))
-        skin3_button = font2.render(f"Skin 3 - 20 Coins", True, (255, 255, 255))
-
-        window.blit(skin1_button, (500, 200))
-        window.blit(skin2_button, (500, 250))
-        window.blit(skin3_button, (500, 300))
-
-        # Show the current coins the player has
-        coins_text = font2.render(f"Coins: {coins}", True, (255, 255, 255))
-        window.blit(coins_text, (500, 400))
-
-        for e in event.get():
-            if e.type == QUIT:
-                quit()
-            if e.type == MOUSEBUTTONDOWN:
-                if 300 <= e.pos[0] <= 400:
-                    if 200 <= e.pos[1] <= 240:  # Easy
-                        enemy_speed = 2
-                    elif 250 <= e.pos[1] <= 290:  # Medium
-                        enemy_speed = 3
-                    elif 300 <= e.pos[1] <= 340:  # Hard
-                        enemy_speed = 4
-                if 300 <= e.pos[0] <= 400:
-                    if 350 <= e.pos[1] <= 390:  # 5 Enemies
-                        enemy_count = 5
-                    elif 400 <= e.pos[1] <= 440:  # 10 Enemies
-                        enemy_count = 10
-                    elif 450 <= e.pos[1] <= 490:  # 15 Enemies
-                        enemy_count = 15
-                # Skin selection and currency check
-                if 500 <= e.pos[0] <= 600:
-                    if 200 <= e.pos[1] <= 240:  # Skin 1
-                        current_skin = img_V1
-                    elif 250 <= e.pos[1] <= 290:  # Skin 2
-                        if coins >= 10:
-                            current_skin = img_V2
-                            coins -= 10  # Deduct coins for purchasing
-                    elif 300 <= e.pos[1] <= 340:  # Skin 3
-                        if coins >= 20:
-                            current_skin = img_V3
-                            coins -= 20  # Deduct coins for purchasing
-
-                menu_running = False
-
-        display.update()
 
 # Game loop
 def game_loop():
@@ -206,10 +151,12 @@ def game_loop():
             ship.update()
             bullets.update()
             monsters.update()
+            explosions.update()  # Update explosions
 
             ship.reset()
             monsters.draw(window)
             bullets.draw(window)
+            explosions.draw(window)  # Draw explosions
 
             collides = sprite.groupcollide(monsters, bullets, True, True)
             for c in collides:
@@ -217,6 +164,10 @@ def game_loop():
                 coins += 5  # Earn coins for shooting enemies
                 monster = Enemy(img_enemy, randint(80, win_width - 80), -40, 80, 50, randint(enemy_speed, enemy_speed + 3))
                 monsters.add(monster)
+
+                # Create an explosion at the enemy's position
+                explosion = Explosion(c.rect.x, c.rect.y)
+                explosions.add(explosion)
 
             if sprite.spritecollide(ship, monsters, False) or lost >= max_lost:
                 finish = True
@@ -229,12 +180,11 @@ def game_loop():
                 break
 
             display.update()
-        time.delay(40)
+        time.delay(30)
 
     save_coins()  # Save coins when the game ends
 
 # Start the game
 load_coins()  # Load the saved coin value when the game starts
-main_menu()  # Show the main menu first
-game_loop()  # Start the game after difficulty and enemy count selection
-
+game_loop()  # Start the game directly after loading coins
+ 
