@@ -67,7 +67,7 @@ class Player(Gamesprite):
             self.rect.x += self.speed
 
     def fire(self):
-        bullet = Bullet(img_bullet, self.rect.centerx, self.rect.top, 15, 20, -15)
+        bullet = Bullet(img_bullet, self.rect.centerx, self.rect.top, 20, 25, -5 )
         bullets.add(bullet)
 
 class Enemy(Gamesprite):
@@ -109,7 +109,7 @@ window = display.set_mode((win_width, win_height))
 background = transform.scale(image.load(img_back), (win_width, win_height))
 
 bullets = sprite.Group()
-ship = Player(current_skin, 5, win_height - 100, 80, 100, 10)
+ship = Player(current_skin, 5, win_height - 110, 88, 110, 11)
 
 monsters = sprite.Group()
 explosions = sprite.Group()  # Group to hold explosions
