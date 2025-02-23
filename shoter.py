@@ -79,6 +79,95 @@ class Enemy(Gamesprite):
             self.rect.y = -40
             lost += 1
 
+class Player(Gamesprite):
+    def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
+        super().__init__(player_image, player_x, player_y, size_x, size_y, player_speed)
+        self.ammo = 10  # Кількість патронів
+        self.reload_time = 2000  # Час перезарядки в мілісекундах
+        self.last_reload = 0  # Час останньої перезарядки
+
+    def update(self):
+        keys = key.get_pressed()
+        if keys[K_LEFT] and self.rect.x > 5:
+            self.rect.x -= self.speed
+        if keys[K_RIGHT] and self.rect.x < win_width - 80:
+            self.rect.x += self.speed
+
+    def fire(self):
+        if self.ammo > 0:
+            bullet = Bullet(img_bullet, self.rect.centerx, self.rect.top, 20, 25, -5)
+            bullets.add(bullet)
+            self.ammo -= 1
+            fire_sound.play()
+
+    def reload(self):
+        now = time.get_ticks()
+        if now - self.last_reload > self.reload_time:
+            self.ammo = 10
+            self.last_reload = now
+
+def game_loop():
+    global score, lost, finish, goal, coins
+    score = 0
+    lost = 0
+    finish = False
+    run = True
+    create_monsters()
+
+    while run:
+        for e in event.get():
+            if e.type == QUIT:
+                run = False
+            elif e.type == KEYDOWN:
+                if e.key == K_SPACE:
+                    ship.fire()
+                elif e.key == K_r:  # Клавіша R для перезарядки
+                    ship.reload()
+
+        if not finish:
+            window.blit(background, (0, 0))
+
+            text = font2.render("Score: " + str(score), 1, (255, 255, 255))
+            window.blit(text, (10, 20))
+            text_lose = font2.render("Missed: " + str(lost), 1, (255, 255, 255))
+            window.blit(text_lose, (10, 50))
+            text_goal = font2.render("Goal: " + str(goal), 1, (255, 255, 255))
+            window.blit(text_goal, (10, 80))
+
+            ship.update()
+            bullets.update()
+            monsters.update()
+            explosions.update()
+
+            ship.reset()
+            monsters.draw(window)
+            bullets.draw(window)
+            explosions.draw(window)
+
+            collides = sprite.groupcollide(monsters, bullets, True, True)
+            for c in collides:
+                score += 1
+                coins += 5
+                monster = Enemy(img_enemy, randint(80, win_width - 80), -40, 80, 50, randint(enemy_speed, enemy_speed + 3))
+                monsters.add(monster)
+                explosion = Explosion(c.rect.x, c.rect.y)
+                explosions.add(explosion)
+
+            if sprite.spritecollide(ship, monsters, False) or lost >= max_lost:
+                finish = True
+                window.blit(lose, (200, 200))
+                break
+
+            if score >= goal:
+                finish = True
+                window.blit(win, (200, 200))
+                break
+
+            display.update()
+        time.delay(30)
+
+    save_coins()
+
 class Bullet(Gamesprite):
     def update(self):
         self.rect.y += self.speed
